@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "tradingagents-desk": {
+      "type": "stdio",
+      "command": "./bin/run-trading-mcp",
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
+}

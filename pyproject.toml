@@ -38,18 +38,23 @@ dev = [
     "ruff>=0.15",
     "pytest>=8.0",
     "pytest-subtests>=0.13",
+    "mcp[cli]>=1.9,<2",
 ]
 # Amazon Bedrock support (AWS SigV4 auth + boto3). Optional so the core install
 # stays lean: pip install "tradingagents[bedrock]".
 bedrock = [
     "langchain-aws>=1.5.0",
 ]
+# FastMCP server (Step 3). Pin <2 so FastMCP import path stays stable.
+mcp = [
+    "mcp[cli]>=1.9,<2",
+]
 
 [project.scripts]
 tradingagents = "cli.main:app"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*"]
+include = ["tradingagents*", "cli*", "mcp_server*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]
