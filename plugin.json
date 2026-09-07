@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tradingagents-desk",
+  "version": "0.1.0",
+  "description": "Agent Plugin wrapping TradingAgents FastMCP TradeDeskSurface: market snapshot, technicals, macro, parallel analysts, and full trade desk over stdio.",
+  "author": {
+    "name": "Vlad",
+    "url": "https://github.com/vsternbach"
+  },
+  "keywords": [
+    "trading",
+    "mcp",
+    "trade-desk",
+    "fastmcp",
+    "tradingagents"
+  ],
+  "license": "Apache-2.0"
+}

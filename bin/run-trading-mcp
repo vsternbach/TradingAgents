@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Thin launcher for Agent Plugins local install (PLUGIN_ROOT may be a thin
+# copy under ~/.cursor/plugins/local). Resolves the TradingAgents repo +
+# venv python from ambient env (Agent Plugins 1.0.0 only expands
+# PLUGIN_ROOT / PLUGIN_DATA — no custom plugin variables).
+set -euo pipefail
+
+DEFAULT_ROOT="/Users/vlad/Projects/TradingAgents"
+DEFAULT_PYTHON="${DEFAULT_ROOT}/.venv/bin/python"
+
+ROOT="${TRADINGAGENTS_ROOT:-}"
+PYTHON="${TRADINGAGENTS_PYTHON:-}"
+
+# Dev case: plugin root IS the repo (has mcp_server + .venv).
+if [[ -z "${ROOT}" && -n "${PLUGIN_ROOT:-}" && -d "${PLUGIN_ROOT}/mcp_server" ]]; then
+  ROOT="${PLUGIN_ROOT}"
+fi
+if [[ -z "${PYTHON}" && -n "${ROOT}" && -x "${ROOT}/.venv/bin/python" ]]; then
+  PYTHON="${ROOT}/.venv/bin/python"
+fi
+
+ROOT="${ROOT:-$DEFAULT_ROOT}"
+PYTHON="${PYTHON:-$DEFAULT_PYTHON}"
+
+if [[ ! -x "${PYTHON}" ]]; then
+  echo "run-trading-mcp: python not executable: ${PYTHON}" >&2
+  echo "Set TRADINGAGENTS_PYTHON (and TRADINGAGENTS_ROOT) to the repo venv." >&2
+  exit 1
+fi
+if [[ ! -d "${ROOT}/mcp_server" ]]; then
+  echo "run-trading-mcp: mcp_server not found under TRADINGAGENTS_ROOT=${ROOT}" >&2
+  exit 1
+fi
+
+export PYTHONPATH="${ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+cd "${ROOT}"
+exec "${PYTHON}" -m mcp_server.trading_mcp "$@"
