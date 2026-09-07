@@ -170,6 +170,38 @@ python -m cli.main     # alternative: run directly from source
 ```
 You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
 
+### Headless CLI (non-interactive)
+
+For bots, cron, or scripts — no prompts. From a venv with the package installed (`pip install .` or `pip install -e ".[dev]"`):
+
+```bash
+# specialist technicals only → JSON on stdout
+python -m cli.headless --ticker AAPL --mode technical --json
+
+# full 11-agent desk
+python -m cli.headless --ticker NVDA --mode full --date 2026-01-15 --json
+
+# parallel subset (wire keys)
+python -m cli.headless --ticker BTC-USD --analysts market,social --json
+```
+
+Frozen `--mode` values (do not invent others):
+
+| Mode | What it runs |
+|---|---|
+| `full` | Full trade desk |
+| `technical` / `market` | Market analyst |
+| `sentiment` / `social` | Sentiment analyst |
+| `news` | News analyst |
+| `fundamentals` | Fundamentals analyst |
+| `macro` | Macro indicators (data) |
+| `data` | Market snapshot + technicals (no LLM) |
+| `parallel` | All four analysts concurrently |
+
+Analyst **wire keys** are `market | social | news | fundamentals`. The wire key is `social` (not `sentiment`); `--mode sentiment` and `--analysts sentiment` are accepted aliases that map to `social`. Use `--json` for structured stdout (success + per-analyst `ok` / `error`).
+
+Same desk is also exposed as MCP tools: `get_market_snapshot`, `get_technical_indicators`, `get_macro_indicators`, `analyze_ticker_parallel`, `run_full_trade_desk` — see [docs/MCP-stdio.md](docs/MCP-stdio.md) and [docs/MCP-sse.md](docs/MCP-sse.md).
+
 ### Markets and tickers
 
 TradingAgents works with any market Yahoo Finance covers, using the exchange-suffixed ticker. Company identity and the alpha benchmark resolve automatically per market.
