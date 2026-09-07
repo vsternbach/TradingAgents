@@ -9,11 +9,17 @@ Frozen v1 tool names (Product Design errata — not the aspirational catalog):
 
 Wire keys for analysts: market | social | news | fundamentals
 (``sentiment`` accepted as alias → ``social``).
+
+Transports (Step 5):
+  stdio (default) — local Cursor / Claude Desktop
+  sse — HTTP+SSE for remote MCP clients (Grok Bot via Tailscale/SSH)
+  streamable-http — FastMCP streamable HTTP endpoint
 """
 
 from __future__ import annotations
 
-from typing import Any
+import argparse
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -27,15 +33,23 @@ V1_TOOL_NAMES: tuple[str, ...] = (
     "run_full_trade_desk",
 )
 
+TransportName = Literal["stdio", "sse", "streamable-http"]
+
 
 def create_mcp_server(
     service: TradingDeskService | None = None,
     *,
     name: str = "TradingAgents-Desk",
+    host: str = "127.0.0.1",
+    port: int = 8000,
 ) -> FastMCP:
-    """Build a FastMCP app bound to a TradingDeskService instance."""
+    """Build a FastMCP app bound to a TradingDeskService instance.
+
+    ``host`` defaults to loopback. Prefer Tailscale Serve / SSH tunnel for
+    remote clients rather than binding ``0.0.0.0`` without a network gate.
+    """
     desk = service or TradingDeskService()
-    server = FastMCP(name)
+    server = FastMCP(name, host=host, port=port)
 
     @server.tool(name="get_market_snapshot")
     def get_market_snapshot(
@@ -102,8 +116,50 @@ def create_mcp_server(
 mcp = create_mcp_server()
 
 
-def main() -> None:
-    mcp.run(transport="stdio")
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="TradingAgents FastMCP server (stdio / sse / streamable-http)."
+    )
+    parser.add_argument(
+        "--transport",
+        choices=("stdio", "sse", "streamable-http"),
+        default="stdio",
+        help="MCP transport (default: stdio).",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind host for sse/streamable-http (default: 127.0.0.1).",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Bind port for sse/streamable-http (default: 8000).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    transport: TransportName = args.transport
+    if transport == "stdio":
+        mcp.run(transport="stdio")
+        return
+
+    server = create_mcp_server(host=args.host, port=args.port)
+    if transport == "sse":
+        print(
+            f"TradingAgents MCP SSE listening on http://{args.host}:{args.port}/sse",
+            flush=True,
+        )
+    else:
+        print(
+            f"TradingAgents MCP streamable-http listening on "
+            f"http://{args.host}:{args.port}/mcp",
+            flush=True,
+        )
+    server.run(transport=transport)
 
 
 if __name__ == "__main__":
