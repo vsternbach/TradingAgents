@@ -55,9 +55,25 @@ Preferred patterns (keep FastMCP bound to `127.0.0.1`):
 2. **Tailscale Serve** on the Mac, serving local port 8000, then use the Serve
    URL as the AddMcpServer `url`.
 
-DNS-rebinding protection in FastMCP allows `127.0.0.1` / `localhost` by default.
-If you bind a Tailscale IP / MagicDNS hostname directly, you may need to widen
-`transport_security` — prefer Serve/tunnel instead.
+DNS-rebinding protection stays **on**. Localhost hosts/origins are always
+allowed. For **Tailscale Funnel/Serve**, the public `Host` header is your
+MagicDNS name (e.g. `mac.tailbe8cfe.ts.net`), which FastMCP rejects with
+**421 Invalid Host header** unless you extend the allowlist:
+
+```bash
+export MCP_ALLOWED_HOSTS=mac.tailbe8cfe.ts.net,mac.tailbe8cfe.ts.net:*
+# Optional if the client sends an Origin header:
+export MCP_ALLOWED_ORIGINS=https://mac.tailbe8cfe.ts.net,https://mac.tailbe8cfe.ts.net:*
+
+python -m mcp_server.trading_mcp --transport sse --host 127.0.0.1 --port 8000
+```
+
+`MCP_ALLOWED_HOSTS` is a comma-separated list merged with the localhost defaults
+(supports port wildcards like `host:*`). Do **not** disable DNS-rebinding
+protection entirely.
+
+Funnel example: `https://mac.tailbe8cfe.ts.net/` → `127.0.0.1:8000`, then
+AddMcpServer `url`: `https://mac.tailbe8cfe.ts.net/sse`.
 
 ## Smoke test
 

@@ -14,14 +14,21 @@ Transports (Step 5):
   stdio (default) — local Cursor / Claude Desktop
   sse — HTTP+SSE for remote MCP clients (Grok Bot via Tailscale/SSH)
   streamable-http — FastMCP streamable HTTP endpoint
+
+Env (DNS-rebinding allowlist for Funnel/Serve Host headers):
+  MCP_ALLOWED_HOSTS — comma-separated hosts/patterns merged with localhost defaults
+    e.g. MCP_ALLOWED_HOSTS=mac.tailbe8cfe.ts.net,mac.tailbe8cfe.ts.net:*
+  MCP_ALLOWED_ORIGINS — optional comma-separated Origin patterns (https://host, https://host:*)
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from tradingagents.service.desk_service import TradingDeskService
 
@@ -35,6 +42,47 @@ V1_TOOL_NAMES: tuple[str, ...] = (
 
 TransportName = Literal["stdio", "sse", "streamable-http"]
 
+_DEFAULT_ALLOWED_HOSTS: list[str] = [
+    "127.0.0.1:*",
+    "localhost:*",
+    "[::1]:*",
+]
+_DEFAULT_ALLOWED_ORIGINS: list[str] = [
+    "http://127.0.0.1:*",
+    "http://localhost:*",
+    "http://[::1]:*",
+]
+
+
+def _split_csv(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def build_transport_security(
+    extra_hosts: list[str] | None = None,
+    extra_origins: list[str] | None = None,
+) -> TransportSecuritySettings:
+    """Keep DNS-rebinding on; merge localhost defaults with env/extra hosts."""
+    hosts = list(_DEFAULT_ALLOWED_HOSTS)
+    for host in _split_csv(os.environ.get("MCP_ALLOWED_HOSTS")) + list(extra_hosts or []):
+        if host not in hosts:
+            hosts.append(host)
+
+    origins = list(_DEFAULT_ALLOWED_ORIGINS)
+    for origin in _split_csv(os.environ.get("MCP_ALLOWED_ORIGINS")) + list(
+        extra_origins or []
+    ):
+        if origin not in origins:
+            origins.append(origin)
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=hosts,
+        allowed_origins=origins,
+    )
+
 
 def create_mcp_server(
     service: TradingDeskService | None = None,
@@ -42,14 +90,21 @@ def create_mcp_server(
     name: str = "TradingAgents-Desk",
     host: str = "127.0.0.1",
     port: int = 8000,
+    transport_security: TransportSecuritySettings | None = None,
 ) -> FastMCP:
     """Build a FastMCP app bound to a TradingDeskService instance.
 
-    ``host`` defaults to loopback. Prefer Tailscale Serve / SSH tunnel for
-    remote clients rather than binding ``0.0.0.0`` without a network gate.
+    ``host`` defaults to loopback. Prefer Tailscale Serve / Funnel / SSH tunnel
+    for remote clients rather than binding ``0.0.0.0`` without a network gate.
     """
     desk = service or TradingDeskService()
-    server = FastMCP(name, host=host, port=port)
+    security = transport_security or build_transport_security()
+    server = FastMCP(
+        name,
+        host=host,
+        port=port,
+        transport_security=security,
+    )
 
     @server.tool(name="get_market_snapshot")
     def get_market_snapshot(
